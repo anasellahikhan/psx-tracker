@@ -1,0 +1,41 @@
+name: PSX price tracker
+
+on:
+  schedule:
+    # Hourly, 9 AM - 4 PM Pakistan time (UTC+5) = 4:00 - 11:00 UTC, Mon-Fri
+    - cron: "0 4-11 * * 1-5"
+  workflow_dispatch: {}   # allows manual "Run workflow" button for testing
+
+permissions:
+  contents: write
+
+concurrency:
+  group: psx-tracker
+  cancel-in-progress: false
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install requests pandas lxml
+
+      - name: Take price snapshot
+        run: python github-version/tracker.py
+
+      - name: Commit and push CSV
+        run: |
+          git config user.name "psx-tracker-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add psx_live.csv psx_week_ending_*.csv 2>/dev/null || git add psx_live.csv
+          git commit -m "PSX snapshot $(TZ=Asia/Karachi date +'%Y-%m-%d %H:%M') PKT" || echo "nothing to commit"
+          git pull --rebase origin main || true
+          git push
