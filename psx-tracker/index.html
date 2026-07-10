@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PSX Sharia Bluechips Tracker</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 24px auto; max-width: 960px; padding: 0 16px; color: #1a1a2e; }
+  h1 { font-size: 1.4rem; }
+  .meta { color: #666; margin-bottom: 16px; }
+  select { font-size: 1rem; padding: 6px 10px; margin: 0 8px 16px 0; }
+  #latest { border-collapse: collapse; margin-top: 24px; width: 100%; font-size: 0.9rem; }
+  #latest td, #latest th { border: 1px solid #ddd; padding: 5px 9px; text-align: right; }
+  #latest th { background: #f4f4f6; }
+  #latest td:first-child, #latest th:first-child { text-align: left; }
+</style>
+</head>
+<body>
+<h1>PSX Sharia Bluechips Tracker</h1>
+<div class="meta" id="asof">Loading data&hellip;</div>
+<label>Series: <select id="series"></select></label>
+<canvas id="chart" height="120"></canvas>
+<table id="latest"></table>
+<script>
+const CSV_URL = "data/psx_live.csv?cb=" + Date.now();
+let rows = [], header = [], chart;
+
+function parseCSV(text) {
+  const lines = text.trim().split(/\r?\n/).map(l => l.split(","));
+  header = lines[0];
+  rows = lines.slice(1).filter(r => r.length === header.length);
+}
+
+function draw(col) {
+  const i = header.indexOf(col);
+  const labels = rows.map(r => r[0] + " " + r[1]);
+  const data = rows.map(r => r[i] === "" ? null : +r[i]);
+  if (chart) chart.destroy();
+  chart = new Chart(document.getElementById("chart"), {
+    type: "line",
+    data: { labels, datasets: [{ label: col, data, borderColor: "#0d7a5f",
+            backgroundColor: "rgba(13,122,95,.12)", fill: true, spanGaps: true,
+            pointRadius: rows.length > 60 ? 0 : 3, tension: .2 }] },
+    options: { scales: { y: { ticks: { callback: v => v.toLocaleString() } } } }
+  });
+}
+
+function latestTable() {
+  if (!rows.length) return;
+  const last = rows[rows.length - 1];
+  const prevDay = rows.filter(r => r[0] < last[0]);
+  const prev = prevDay.length ? prevDay[prevDay.length - 1] : null;
+  let html = "<tr><th>Symbol</th><th>Latest</th><th>Prev. day</th><th>Change %</th></tr>";
+  for (let i = 2; i < header.length; i++) {
+    const cur = last[i] === "" ? null : +last[i];
+    const pv = prev && prev[i] !== "" ? +prev[i] : null;
+    const chg = cur != null && pv ? ((cur - pv) / pv * 100).toFixed(2) + "%" : "–";
+    html += `<tr><td>${header[i]}</td><td>${cur == null ? "–" : cur.toLocaleString()}</td>` +
+            `<td>${pv == null ? "–" : pv.toLocaleString()}</td>` +
+            `<td style="color:${chg.startsWith("-") ? "#c0392b" : "#0d7a5f"}">${chg}</td></tr>`;
+  }
+  document.getElementById("latest").innerHTML = html;
+}
+
+fetch(CSV_URL).then(r => r.text()).then(text => {
+  parseCSV(text);
+  const sel = document.getElementById("series");
+  header.slice(2).forEach(c => sel.add(new Option(c, c)));
+  sel.value = "KSE100";
+  sel.onchange = () => draw(sel.value);
+  if (rows.length) {
+    const last = rows[rows.length - 1];
+    document.getElementById("asof").textContent =
+      `Last update: ${last[0]} ${last[1]} PKT · ${rows.length} data points`;
+    draw("KSE100");
+    latestTable();
+  } else {
+    document.getElementById("asof").textContent =
+      "No data yet - the tracker will add its first row on the next trading day.";
+  }
+});
+</script>
+</body>
+</html>
