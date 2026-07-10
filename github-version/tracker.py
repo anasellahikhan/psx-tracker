@@ -93,7 +93,7 @@ def fetch_index_values():
                     for _, row in table.iterrows():
                         name = re.sub(r"[^A-Z0-9]", "", str(row["INDEX"]).upper())
                         for idx in INDICES:
-                            if name.startswith(idx):
+                           if name == idx:
                                 values[idx] = _num(row["CURRENT"])
                     break
         except Exception:
