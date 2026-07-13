@@ -3,7 +3,7 @@ name: PSX price tracker
 on:
   schedule:
     # Hourly, 9 AM - 4 PM Pakistan time (UTC+5) = 4:00 - 11:00 UTC, Mon-Fri
-    - cron: "0 4-11 * * 1-5"
+    - cron: "17 4-11 * * 1-5"
   workflow_dispatch: {}   # allows manual "Run workflow" button for testing
 
 permissions:
