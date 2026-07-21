@@ -148,8 +148,27 @@ def migrate_csv_if_needed():
     print(f"csv migrated to new header ({len(HEADER)} columns)", flush=True)
 
 
+def already_have_row_this_hour():
+    """True if the last CSV row is from the current date and hour (PKT).
+    The workflow fires every 15 min to beat GitHub's dropped schedules,
+    but we only want one recorded row per hour."""
+    if not os.path.exists(LIVE_CSV):
+        return False
+    now = datetime.now(PKT)
+    try:
+        with open(LIVE_CSV, newline="") as f:
+            last = list(csv.reader(f))[-1]
+        return (last[0] == now.strftime("%Y-%m-%d")
+                and last[1][:2] == now.strftime("%H"))
+    except (IndexError, ValueError):
+        return False
+
+
 def take_snapshot():
     """Fetch everything (3 attempts) and append one row to psx_live.csv."""
+    if already_have_row_this_hour():
+        print("row for this hour already recorded — skipping", flush=True)
+        return
     prices, indices = {}, {}
     for attempt in range(3):
         try:
